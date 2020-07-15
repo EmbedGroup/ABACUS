@@ -1,6 +1,8 @@
 package com.iota.iri.storage.rocksDB;
 
+import com.iota.iri.bloomfilters.LeveledBloomFilter;
 import com.iota.iri.model.HashFactory;
+import com.iota.iri.model.persistables.Transaction;
 import com.iota.iri.storage.Indexable;
 import com.iota.iri.storage.Persistable;
 import com.iota.iri.storage.PersistenceProvider;
@@ -66,20 +68,33 @@ public class RocksDBPersistenceProvider implements PersistenceProvider {
     private Map<Class<?>, ColumnFamilyHandle> metadataReference = Collections.emptyMap();
 
     private RocksDB db;
-    // DBOptions is only used in initDB(). However, it is closeable - so we keep a reference for shutdown.
+    // DBOptions is only used in initDB(). However, it is closeable - so we keep a
+    // reference for shutdown.
     private DBOptions options;
     private BloomFilter bloomFilter;
     private boolean available;
+    public LeveledBloomFilter BFs;
 
     public RocksDBPersistenceProvider(String dbPath, String logPath, int cacheSize,
-                                      Map<String, Class<? extends Persistable>> columnFamilies,
-                                      Map.Entry<String, Class<? extends Persistable>> metadataColumnFamily) {
+            Map<String, Class<? extends Persistable>> columnFamilies,
+            Map.Entry<String, Class<? extends Persistable>> metadataColumnFamily, LeveledBloomFilter bfs) {
         this.dbPath = dbPath;
         this.logPath = logPath;
         this.cacheSize = cacheSize;
         this.columnFamilies = columnFamilies;
         this.metadataColumnFamily = metadataColumnFamily;
+        BFs = bfs;
 
+    }
+
+    public RocksDBPersistenceProvider(String dbPath, String logPath, int cacheSize,
+            Map<String, Class<? extends Persistable>> columnFamilies,
+            Map.Entry<String, Class<? extends Persistable>> metadataColumnFamily) {
+        this.dbPath = dbPath;
+        this.logPath = logPath;
+        this.cacheSize = cacheSize;
+        this.columnFamilies = columnFamilies;
+        this.metadataColumnFamily = metadataColumnFamily;
     }
 
     @Override
@@ -95,7 +110,6 @@ public class RocksDBPersistenceProvider implements PersistenceProvider {
         return this.available;
     }
 
-
     @Override
     public void shutdown() {
         for (final ColumnFamilyHandle columnFamilyHandle : columnFamilyHandles) {
@@ -106,6 +120,12 @@ public class RocksDBPersistenceProvider implements PersistenceProvider {
 
     @Override
     public boolean save(Persistable thing, Indexable index) throws Exception {
+        if (thing.getClass() == Transaction.class) {
+            Transaction transaction = (Transaction) thing;
+            if (transaction.value < 0) {
+                BFs.insert(transaction.address.toString());
+            }
+        }
         ColumnFamilyHandle handle = classTreeMap.get(thing.getClass());
         db.put(handle, index.bytes(), thing.bytes());
 
@@ -124,7 +144,7 @@ public class RocksDBPersistenceProvider implements PersistenceProvider {
     @Override
     public boolean exists(Class<?> model, Indexable key) throws Exception {
         if (mayExist(model, key)) {
-            //ensure existence
+            // ensure existence
             ColumnFamilyHandle handle = classTreeMap.get(model);
             return handle != null && db.get(handle, key.bytes()) != null;
         }
@@ -226,8 +246,19 @@ public class RocksDBPersistenceProvider implements PersistenceProvider {
         return get(model, (Indexable) hashes.toArray()[seed.nextInt(hashes.size())]);
     }
 
-    private Pair<Indexable, Persistable> modelAndIndex(Class<?> model, Class<? extends Indexable> index, RocksIterator iterator)
-        throws InstantiationException, IllegalAccessException, RocksDBException {
+    /**
+     * 根据指针获取键与值，若是model为transaction还搜索数据库获取transactionmetadata，最后返回（key，persistable）
+     * 
+     * @param model
+     * @param index
+     * @param iterator
+     * @return
+     * @throws InstantiationException
+     * @throws IllegalAccessException
+     * @throws RocksDBException
+     */
+    private Pair<Indexable, Persistable> modelAndIndex(Class<?> model, Class<? extends Indexable> index,
+            RocksIterator iterator) throws InstantiationException, IllegalAccessException, RocksDBException {
 
         if (!iterator.isValid()) {
             return PAIR_OF_NULLS;
@@ -291,18 +322,26 @@ public class RocksDBPersistenceProvider implements PersistenceProvider {
 
     @Override
     public boolean saveBatch(List<Pair<Indexable, Persistable>> models) throws Exception {
-        try (WriteBatch writeBatch = new WriteBatch();
-             WriteOptions writeOptions = new WriteOptions()) {
+        try (WriteBatch writeBatch = new WriteBatch(); WriteOptions writeOptions = new WriteOptions()) {
 
             for (Pair<Indexable, Persistable> entry : models) {
-
                 Indexable key = entry.low;
                 Persistable value = entry.hi;
+                
+                // 每当向tangle中储存交易的时候，查看value，若是小于0，则将address存入BFs
+                if (value.getClass() == Transaction.class) {
+                    Transaction transaction = (Transaction) value;
+                    //System.out.println("save transction,address hash:"+transaction.address.toString());
+                   //log.info("save transction,address hash:"+transaction.address.toString());
+                    if (transaction.value < 0) {
+                        BFs.insert(transaction.address.toString());
+                    }
+                }
 
                 ColumnFamilyHandle handle = classTreeMap.get(value.getClass());
                 ColumnFamilyHandle referenceHandle = metadataReference.get(value.getClass());
 
-                if (value.merge()) {
+                if (value.merge()) {// 若是Hashs对象就返回true，否则返回false
                     writeBatch.merge(handle, key.bytes(), value.bytes());
                 } else {
                     writeBatch.put(handle, key.bytes(), value.bytes());
@@ -333,9 +372,10 @@ public class RocksDBPersistenceProvider implements PersistenceProvider {
                 }
 
                 WriteOptions writeOptions = new WriteOptions()
-                        //We are explicit about what happens if the node reboots before a flush to the db
+                        // We are explicit about what happens if the node reboots before a flush to the
+                        // db
                         .setDisableWAL(false)
-                        //We want to make sure deleted data was indeed deleted
+                        // We want to make sure deleted data was indeed deleted
                         .setSync(true);
                 db.write(writeOptions, writeBatch);
             }
@@ -399,8 +439,8 @@ public class RocksDBPersistenceProvider implements PersistenceProvider {
     // 2018 March 28 - Unused Code
     public void createBackup(String path) throws RocksDBException {
         try (Env env = Env.getDefault();
-             BackupableDBOptions backupableDBOptions = new BackupableDBOptions(path);
-             BackupEngine backupEngine = BackupEngine.open(env, backupableDBOptions)) {
+                BackupableDBOptions backupableDBOptions = new BackupableDBOptions(path);
+                BackupEngine backupEngine = BackupEngine.open(env, backupableDBOptions)) {
 
             backupEngine.createNewBackup(db, true);
         }
@@ -408,14 +448,13 @@ public class RocksDBPersistenceProvider implements PersistenceProvider {
 
     // 2018 March 28 - Unused Code
     public void restoreBackup(String path, String logPath) throws Exception {
-        try (Env env = Env.getDefault();
-             BackupableDBOptions backupableDBOptions = new BackupableDBOptions(path)) {
+        try (Env env = Env.getDefault(); BackupableDBOptions backupableDBOptions = new BackupableDBOptions(path)) {
 
             // shutdown after successful creation of env and backupable ...
             shutdown();
 
             try (BackupEngine backupEngine = BackupEngine.open(env, backupableDBOptions);
-                 RestoreOptions restoreOptions = new RestoreOptions(false)) {
+                    RestoreOptions restoreOptions = new RestoreOptions(false)) {
 
                 backupEngine.restoreDbFromLatestBackup(path, logPath, restoreOptions);
             }
@@ -423,15 +462,15 @@ public class RocksDBPersistenceProvider implements PersistenceProvider {
         initDB(path, logPath, columnFamilies);
     }
 
-    private void initDB(String path, String logPath, Map<String, Class<? extends Persistable>> columnFamilies) throws Exception {
+    private void initDB(String path, String logPath, Map<String, Class<? extends Persistable>> columnFamilies)
+            throws Exception {
         try {
             try {
                 RocksDB.loadLibrary();
             } catch (Exception e) {
                 if (SystemUtils.IS_OS_WINDOWS) {
-                    log.error("Error loading RocksDB library. Please ensure that " +
-                        "Microsoft Visual C++ 2015 Redistributable Update 3 " +
-                        "is installed and updated");
+                    log.error("Error loading RocksDB library. Please ensure that "
+                            + "Microsoft Visual C++ 2015 Redistributable Update 3 " + "is installed and updated");
                 }
                 throw e;
             }
@@ -445,55 +484,41 @@ public class RocksDBPersistenceProvider implements PersistenceProvider {
             }
 
             int numThreads = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
-            RocksEnv.getDefault()
-                .setBackgroundThreads(numThreads, RocksEnv.FLUSH_POOL)
-                .setBackgroundThreads(numThreads, RocksEnv.COMPACTION_POOL);
+            RocksEnv.getDefault().setBackgroundThreads(numThreads, RocksEnv.FLUSH_POOL).setBackgroundThreads(numThreads,
+                    RocksEnv.COMPACTION_POOL);
 
-            options = new DBOptions()
-                .setCreateIfMissing(true)
-                .setCreateMissingColumnFamilies(true)
-                .setDbLogDir(logPath)
-                .setMaxLogFileSize(SizeUnit.MB)
-                .setMaxManifestFileSize(SizeUnit.MB)
-                .setMaxOpenFiles(10000)
-                .setMaxBackgroundCompactions(1);
+            options = new DBOptions().setCreateIfMissing(true).setCreateMissingColumnFamilies(true).setDbLogDir(logPath)
+                    .setMaxLogFileSize(SizeUnit.MB).setMaxManifestFileSize(SizeUnit.MB).setMaxOpenFiles(10000)
+                    .setMaxBackgroundCompactions(1);
 
             options.setMaxSubcompactions(Runtime.getRuntime().availableProcessors());
 
             bloomFilter = new BloomFilter(BLOOM_FILTER_BITS_PER_KEY);
 
             BlockBasedTableConfig blockBasedTableConfig = new BlockBasedTableConfig().setFilter(bloomFilter);
-            blockBasedTableConfig
-                .setFilter(bloomFilter)
-                .setCacheNumShardBits(2)
-                .setBlockSizeDeviation(10)
-                .setBlockRestartInterval(16)
-                .setBlockCacheSize(cacheSize * SizeUnit.KB)
-                .setBlockCacheCompressedNumShardBits(10)
-                .setBlockCacheCompressedSize(32 * SizeUnit.KB);
+            blockBasedTableConfig.setFilter(bloomFilter).setCacheNumShardBits(2).setBlockSizeDeviation(10)
+                    .setBlockRestartInterval(16).setBlockCacheSize(cacheSize * SizeUnit.KB)
+                    .setBlockCacheCompressedNumShardBits(10).setBlockCacheCompressedSize(32 * SizeUnit.KB);
 
             options.setAllowConcurrentMemtableWrite(true);
 
             MergeOperator mergeOperator = new StringAppendOperator();
-            ColumnFamilyOptions columnFamilyOptions = new ColumnFamilyOptions()
-                .setMergeOperator(mergeOperator)
-                .setTableFormatConfig(blockBasedTableConfig)
-                .setMaxWriteBufferNumber(2)
-                .setWriteBufferSize(2 * SizeUnit.MB);
+            ColumnFamilyOptions columnFamilyOptions = new ColumnFamilyOptions().setMergeOperator(mergeOperator)
+                    .setTableFormatConfig(blockBasedTableConfig).setMaxWriteBufferNumber(2)
+                    .setWriteBufferSize(2 * SizeUnit.MB);
 
             List<ColumnFamilyDescriptor> columnFamilyDescriptors = new ArrayList<>();
-            //Add default column family. Main motivation is to not change legacy code
+            // Add default column family. Main motivation is to not change legacy code
             columnFamilyDescriptors.add(new ColumnFamilyDescriptor(RocksDB.DEFAULT_COLUMN_FAMILY, columnFamilyOptions));
             for (String name : columnFamilies.keySet()) {
                 columnFamilyDescriptors.add(new ColumnFamilyDescriptor(name.getBytes(), columnFamilyOptions));
             }
             // metadata descriptor is always last
             if (metadataColumnFamily != null) {
-                columnFamilyDescriptors.add(
-                        new ColumnFamilyDescriptor(metadataColumnFamily.getKey().getBytes(), columnFamilyOptions));
+                columnFamilyDescriptors
+                        .add(new ColumnFamilyDescriptor(metadataColumnFamily.getKey().getBytes(), columnFamilyOptions));
                 metadataReference = new HashMap<>();
             }
-
 
             db = RocksDB.open(options, path, columnFamilyDescriptors, columnFamilyHandles);
             db.enableFileDeletions(true);
@@ -509,7 +534,7 @@ public class RocksDBPersistenceProvider implements PersistenceProvider {
     private void initClassTreeMap(List<ColumnFamilyDescriptor> columnFamilyDescriptors) throws Exception {
         Map<Class<?>, ColumnFamilyHandle> classMap = new LinkedHashMap<>();
         String mcfName = metadataColumnFamily == null ? "" : metadataColumnFamily.getKey();
-        //skip default column
+        // skip default column
         int i = 1;
         for (; i < columnFamilyDescriptors.size(); i++) {
 
@@ -518,12 +543,11 @@ public class RocksDBPersistenceProvider implements PersistenceProvider {
                 Map<Class<?>, ColumnFamilyHandle> metadataRef = new HashMap<>();
                 metadataRef.put(metadataColumnFamily.getValue(), columnFamilyHandles.get(i));
                 metadataReference = MapUtils.unmodifiableMap(metadataRef);
-            }
-            else {
+            } else {
                 classMap.put(columnFamilies.get(name), columnFamilyHandles.get(i));
             }
         }
-        for (; ++i < columnFamilyHandles.size(); ) {
+        for (; ++i < columnFamilyHandles.size();) {
             db.dropColumnFamily(columnFamilyHandles.get(i));
         }
 

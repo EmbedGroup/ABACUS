@@ -170,6 +170,7 @@ public class MilestoneServiceImpl implements MilestoneService {
     public MilestoneValidity validateMilestone(TransactionViewModel transactionViewModel, int milestoneIndex)
             throws MilestoneException {
 
+            
         if (milestoneIndex < 0 || milestoneIndex >= config.getMaxMilestoneIndex()) {
             return INVALID;
         }

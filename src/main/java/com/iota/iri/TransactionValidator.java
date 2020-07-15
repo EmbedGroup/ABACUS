@@ -134,7 +134,6 @@ public class TransactionValidator {
         if(transactionRequester.wasTransactionRecentlyRequested(transactionViewModel.getHash())) {
             return false;
         }
-
         if (transactionViewModel.getAttachmentTimestamp() == 0) {
             return transactionViewModel.getTimestamp() < snapshotProvider.getInitialSnapshot().getTimestamp() && !snapshotProvider.getInitialSnapshot().hasSolidEntryPoint(transactionViewModel.getHash())
                     || transactionViewModel.getTimestamp() > (System.currentTimeMillis() / 1000) + MAX_TIMESTAMP_FUTURE;

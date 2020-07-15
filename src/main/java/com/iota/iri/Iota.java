@@ -9,6 +9,7 @@ import org.apache.commons.lang3.NotImplementedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.iota.iri.bloomfilters.LeveledBloomFilter;
 import com.iota.iri.conf.IotaConfig;
 import com.iota.iri.conf.TipSelConfig;
 import com.iota.iri.controllers.TipsViewModel;
@@ -91,6 +92,9 @@ public class Iota {
 
     public final SpentAddressesServiceImpl spentAddressesService;
 
+    public final LeveledBloomFilter BFs;
+
+    
     public final SnapshotProviderImpl snapshotProvider;
 
     public final SnapshotServiceImpl snapshotService;
@@ -137,6 +141,7 @@ public class Iota {
 
         // new refactored instances
         spentAddressesProvider = new SpentAddressesProviderImpl();
+        BFs=new LeveledBloomFilter();
         spentAddressesService = new SpentAddressesServiceImpl();
         snapshotProvider = new SnapshotProviderImpl();
         snapshotService = new SnapshotServiceImpl();
@@ -213,8 +218,9 @@ public class Iota {
         // because we check whether spent addresses data exists
         snapshotProvider.init(configuration);
         initSpentAddressesProvider();
+        BFs.Initialize();
 
-        spentAddressesService.init(tangle, snapshotProvider, spentAddressesProvider, bundleValidator, configuration);
+        spentAddressesService.init(tangle, snapshotProvider, spentAddressesProvider, bundleValidator, configuration,BFs);
         snapshotService.init(tangle, snapshotProvider, spentAddressesService, spentAddressesProvider, configuration);
         if (localSnapshotManager != null) {
             localSnapshotManager.init(snapshotProvider, snapshotService, transactionPruner, configuration);
@@ -235,9 +241,12 @@ public class Iota {
         neighborRouter.init(configuration, configuration, transactionRequester, txPipeline);
         txPipeline.init(neighborRouter, configuration, transactionValidator, tangle, snapshotProvider, tipsViewModel,
                 latestMilestoneTracker, transactionRequester);
-        tipRequester.init(neighborRouter, tangle, latestMilestoneTracker, transactionRequester);
+        tipRequester.init(neighborRouter, tangle, latestMilestoneTracker, transactionRequester,BFs);
     }
-
+    /**
+     * 新建数据库，从文件中读入spentaddress
+     * @throws SpentAddressesException
+     */
     private void initSpentAddressesProvider() throws SpentAddressesException {
         PersistenceProvider spentAddressesDbProvider = createRocksDbProvider(
                 configuration.getSpentAddressesDbPath(),
@@ -246,6 +255,9 @@ public class Iota {
                 new HashMap<String, Class<? extends Persistable>>(1) {{
                     put("spent-addresses", SpentAddress.class);
                 }}, null);
+        /**
+         * 不是testnet 并且snapshot不是buildin snapshot
+         */
         boolean assertSpentAddressesExistence = !configuration.isTestnet()
                 && snapshotProvider.getInitialSnapshot().getIndex() != configuration.getMilestoneStartIndex();
         spentAddressesProvider.init(configuration, spentAddressesDbProvider, assertSpentAddressesExistence);
@@ -282,6 +294,7 @@ public class Iota {
      */
     public void shutdown() throws Exception {
         // shutdown in reverse starting order (to not break any dependencies)
+        BFs.Shutdown();
         milestoneSolidifier.shutdown();
         seenMilestonesRetriever.shutdown();
         latestSolidMilestoneTracker.shutdown();
@@ -339,7 +352,7 @@ public class Iota {
             Map<String, Class<? extends Persistable>> columnFamily,
             Map.Entry<String, Class<? extends Persistable>> metadata) {
         return new RocksDBPersistenceProvider(
-                path, log, cacheSize, columnFamily, metadata);
+                path, log, cacheSize, columnFamily, metadata,BFs);
     }
 
     private TipSelector createTipSelector(TipSelConfig config) {

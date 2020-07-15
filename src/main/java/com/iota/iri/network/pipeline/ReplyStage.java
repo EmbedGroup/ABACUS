@@ -98,7 +98,6 @@ public class ReplyStage implements Stage {
         ReplyPayload payload = (ReplyPayload) ctx.getPayload();
         Neighbor neighbor = payload.getOriginNeighbor();
         Hash hashOfRequestedTx = payload.getHashOfRequestedTx();
-
         TransactionViewModel tvm = null;
 
         if (hashOfRequestedTx.equals(Hash.NULL_HASH)) {

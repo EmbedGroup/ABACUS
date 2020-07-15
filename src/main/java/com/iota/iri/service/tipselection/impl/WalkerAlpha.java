@@ -92,17 +92,37 @@ public class WalkerAlpha implements Walker {
 
         return traversedTails.getLast();
     }
-
+    /**
+     * 
+     * @param tailHash
+     * @param ratings
+     * @param walkValidator
+     * @return
+     * @throws Exception
+     */
     private Optional<Hash> selectApprover(Hash tailHash, Map<Hash, Integer> ratings, WalkValidator walkValidator) throws Exception {
         Set<Hash> approvers = getApprovers(tailHash);
         return findNextValidTail(ratings, approvers, walkValidator);
     }
 
+    /**
+     * 从数据库中读取此bundle的tail交易之后连接的交易（证明他的bundle的index最大的交易）
+     * @param tailHash
+     * @return
+     * @throws Exception
+     */
     private Set<Hash> getApprovers(Hash tailHash) throws Exception {
         ApproveeViewModel approveeViewModel = ApproveeViewModel.load(tangle, tailHash);
         return approveeViewModel.getHashes();
     }
-
+    /**
+     * 
+     * @param ratings
+     * @param approvers
+     * @param walkValidator
+     * @return
+     * @throws Exception
+     */
     private Optional<Hash> findNextValidTail(Map<Hash, Integer> ratings, Set<Hash> approvers, WalkValidator walkValidator) throws Exception {
         Optional<Hash> nextTailHash = Optional.empty();
 
@@ -121,7 +141,12 @@ public class WalkerAlpha implements Walker {
 
         return nextTailHash;
     }
-
+    /**
+     * 
+     * @param ratings
+     * @param approversSet
+     * @return
+     */
     private Optional<Hash> select(Map<Hash, Integer> ratings, Set<Hash> approversSet) {
 
         //filter based on tangle state when starting the walk

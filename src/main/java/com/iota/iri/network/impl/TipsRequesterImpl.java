@@ -1,5 +1,6 @@
 package com.iota.iri.network.impl;
 
+import com.iota.iri.bloomfilters.LeveledBloomFilter;
 import com.iota.iri.controllers.TransactionViewModel;
 import com.iota.iri.network.NeighborRouter;
 import com.iota.iri.network.TipsRequester;
@@ -10,6 +11,8 @@ import com.iota.iri.service.milestone.LatestMilestoneTracker;
 import com.iota.iri.storage.Tangle;
 import com.iota.iri.utils.thread.DedicatedScheduledExecutorService;
 import com.iota.iri.utils.thread.SilentScheduledExecutorService;
+
+import org.openjdk.jol.info.ClassLayout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,7 +33,7 @@ public class TipsRequesterImpl implements TipsRequester {
     private Tangle tangle;
     private TransactionRequester txRequester;
     private LatestMilestoneTracker latestMilestoneTracker;
-
+    private LeveledBloomFilter BFs;
     private long lastIterationTime = 0;
 
     /**
@@ -43,11 +46,12 @@ public class TipsRequesterImpl implements TipsRequester {
      *                               transactions from
      */
     public void init(NeighborRouter neighborRouter, Tangle tangle, LatestMilestoneTracker latestMilestoneTracker,
-            TransactionRequester txRequester) {
+            TransactionRequester txRequester,LeveledBloomFilter bfs) {
         this.neighborRouter = neighborRouter;
         this.tangle = tangle;
         this.latestMilestoneTracker = latestMilestoneTracker;
         this.txRequester = txRequester;
+        this.BFs=bfs;
     }
 
     /**
@@ -89,7 +93,7 @@ public class TipsRequesterImpl implements TipsRequester {
                         txRequester.numberOfTransactionsToRequest() +
                                 txRequester.numberOfRecentlyRequestedTransactions(),
                         txPipeline.getReplyStageQueue().size(),
-                        TransactionViewModel.getNumberOfStoredTransactions(tangle));
+                        TransactionViewModel.getNumberOfStoredTransactions(tangle));                
             }
         } catch (final Exception e) {
             log.error("Tips Requester Thread Exception:", e);

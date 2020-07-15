@@ -68,7 +68,9 @@ public class SpentAddressesProviderImpl implements SpentAddressesProvider {
         }
         return this;
     }
-
+    /**
+     * 在Provider数据库中搜索spentaddress列族的第一组数据，判断是否存在
+     */
     private boolean doSpentAddressesExist(PersistenceProvider provider) throws Exception {
         Pair<Indexable, Persistable> first = provider.first(SpentAddress.class, AddressHash.class);
         return first.hi != null && ((SpentAddress) first.hi).exists();

@@ -49,7 +49,6 @@ public class ReceivedStage implements Stage {
         ReceivedPayload payload = (ReceivedPayload) ctx.getPayload();
         Neighbor originNeighbor = payload.getOriginNeighbor();
         TransactionViewModel tvm = payload.getTransactionViewModel();
-
         boolean stored;
         try {
             stored = tvm.store(tangle, snapshotProvider.getInitialSnapshot());

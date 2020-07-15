@@ -16,7 +16,7 @@ import java.nio.ByteBuffer;
  * <tt>Transaction</tt>.
  *
  * <p>
- *     A Transaction set contains all the information of a particular transaction. This includes
+ *     A <b>Transaction set</b> contains all the information of a particular transaction. This includes
  *     hash objects for the <tt>address</tt>, <tt>bundle</tt>, <tt>trunk</tt>, <tt>branch</tt>,
  *     and <tt>obsolete tag</tt>, as well as data such as the <tt>value</tt> of the
  *     transaction as well as the <tt>timestamps</tt> and more.

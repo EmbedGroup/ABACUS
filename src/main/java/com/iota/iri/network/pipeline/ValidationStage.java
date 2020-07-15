@@ -47,7 +47,6 @@ public class ValidationStage implements Stage {
         Neighbor originNeighbor = payload.getOriginNeighbor();
         Long txBytesDigest = payload.getTxBytesDigest();
         Hash hashOfRequestedTx = payload.getHashOfRequestedTx();
-
         // construct transaction hash and model
         TransactionHash txHash = (TransactionHash) HashFactory.TRANSACTION.create(hashTrits, 0, SIZE_IN_TRITS);
         TransactionViewModel tvm = new TransactionViewModel(txTrits, txHash);

@@ -41,10 +41,10 @@ public class PreProcessStage implements Stage {
      */
     @Override
     public ProcessingContext process(ProcessingContext ctx) {
+        
         PreProcessPayload payload = (PreProcessPayload) ctx.getPayload();
         ByteBuffer packetData = payload.getData();
         byte[] data = packetData.array();
-
         // expand received tx data
         byte[] txDataBytes = Protocol.expandTx(data);
         // copy requested tx hash
@@ -59,7 +59,7 @@ public class PreProcessStage implements Stage {
         Hash receivedTxHash = recentlySeenBytesCache.get(txDigest);
         Hash requestedHash = HashFactory.TRANSACTION.create(reqHashBytes, 0,
                 Protocol.GOSSIP_REQUESTED_TX_HASH_BYTES_LENGTH);
-
+        
         // log cache hit/miss ratio every 50k get()s
         if (log.isDebugEnabled()) {
             long hits = recentlySeenBytesCache.getCacheHits();

@@ -78,7 +78,6 @@ public class SpentAddressesProviderImplTest {
     @Test
     public void testSaveAddress() throws Exception {
         provider.saveAddress(A);
-        
         try {
             verify(persistenceProvider, times(1)).save(any(SpentAddress.class), Mockito.eq(A));
         } catch (MockitoAssertionError e) {
