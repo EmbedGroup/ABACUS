@@ -1,0 +1,3 @@
+[submodule "IOTA-Benchmark-Tool"]
+	path = IOTA-Benchmark-Tool
+	url = https://github.com/EmbedGroup/IOTA-Benchmark-Tool.git
