@@ -123,14 +123,14 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>[2.9.10.5,)</version>
+            <version>${jackson-databind.version}</version>
         </dependency>
 
         <!-- undertow server -->
         <dependency>
             <groupId>io.undertow</groupId>
             <artifactId>undertow-core</artifactId>
-            <version>[2.0.23,)</version>
+            <version>${undertow.version}</version>
         </dependency>
 
         <dependency>

@@ -1,16 +1,8 @@
 package com.iota.iri.bloomfilters;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.concurrent.TimeUnit;
+import java.io.*;
 
-import com.google.common.graph.PredecessorsFunction;
-
-import org.omg.CORBA.FREE_MEM;
+// import org.omg.CORBA.FREE_MEM;
 
 /**
  * 2 prefix table which contains 27*27 items
