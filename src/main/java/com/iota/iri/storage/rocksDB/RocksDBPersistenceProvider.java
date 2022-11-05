@@ -8,45 +8,18 @@ import com.iota.iri.storage.Persistable;
 import com.iota.iri.storage.PersistenceProvider;
 import com.iota.iri.utils.IotaIOUtils;
 import com.iota.iri.utils.Pair;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.collections4.MapUtils;
+import org.apache.commons.lang3.SystemUtils;
+import org.rocksdb.*;
+import org.rocksdb.util.SizeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.nio.file.Paths;
 import java.security.SecureRandom;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-
-import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.collections4.MapUtils;
-import org.apache.commons.lang3.SystemUtils;
-import org.rocksdb.BackupEngine;
-import org.rocksdb.BackupableDBOptions;
-import org.rocksdb.BlockBasedTableConfig;
-import org.rocksdb.BloomFilter;
-import org.rocksdb.ColumnFamilyDescriptor;
-import org.rocksdb.ColumnFamilyHandle;
-import org.rocksdb.ColumnFamilyOptions;
-import org.rocksdb.DBOptions;
-import org.rocksdb.Env;
-import org.rocksdb.MergeOperator;
-import org.rocksdb.RestoreOptions;
-import org.rocksdb.RocksDB;
-import org.rocksdb.RocksDBException;
-import org.rocksdb.RocksEnv;
-import org.rocksdb.RocksIterator;
-import org.rocksdb.StringAppendOperator;
-import org.rocksdb.WriteBatch;
-import org.rocksdb.WriteOptions;
-import org.rocksdb.util.SizeUnit;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.*;
 
 public class RocksDBPersistenceProvider implements PersistenceProvider {
 
@@ -84,6 +57,7 @@ public class RocksDBPersistenceProvider implements PersistenceProvider {
         this.columnFamilies = columnFamilies;
         this.metadataColumnFamily = metadataColumnFamily;
         BFs = bfs;
+        //test
 
     }
 
