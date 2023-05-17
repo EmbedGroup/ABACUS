@@ -3,17 +3,13 @@ package com.iota.iri.bloomfilters;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.ListIterator;
-import java.util.concurrent.TimeUnit;
-
-import com.iota.iri.metrics.ConsoleReporter;
-import com.iota.iri.metrics.MetricRegistry;
-import com.iota.iri.metrics.Timer;
-import com.iota.iri.metrics.Timer.Context;
 
 /**
  * SBF query cache use linkedList,least used in the head of list
  */
 public class SBFCache {
+    private String path;
+    HashProvider.HashMethod HashFunction;
     int cachePrefix = 2; // prefix length of query sub cache
     int scacheSize = 32; // size of each sub cache
     // so total cache size=27^2*32*4KB
@@ -31,8 +27,8 @@ public class SBFCache {
         int activenumber; // cached SBF number, note:noly active > 0 needed
         BloomFilter<String> sbf;
 
-        cacheItem(int p, int c) {
-            sbf = new FilterBuilder(4 * 1024 * 8, 7).buildBloomFilter();
+        cacheItem(int p, int c, HashProvider.HashMethod hf) {
+            sbf = new FilterBuilder(4 * 1024 * 8, 7).hashFunction(hf).buildBloomFilter();
             prefix = p;
             activenumber = c;
         }
@@ -43,7 +39,9 @@ public class SBFCache {
     int total = 0;
     int miss = 0;
 
-    SBFCache() {
+    SBFCache(String p, HashProvider.HashMethod hf) {
+        path=p;
+        HashFunction=hf;
         for (int i = 0; i < cacheNumber; i++) {
             lists.add(new LinkedList<>());
         }
@@ -86,8 +84,8 @@ public class SBFCache {
 
         for (int j = 0; j < Maxactivenumber; j++) {
             if (!found[j]) {
-                cacheItem tmp = new cacheItem(prefix, j);
-                String filename = "LBF/GBF" + gbf;
+                cacheItem tmp = new cacheItem(prefix, j, HashFunction);
+                String filename = path+"/GBF" + gbf;
                 int offset = bf * 128 * 1024 + j * 4 * 1024;
                 tmp.sbf.load(filename, offset, 4 * 1024);
 

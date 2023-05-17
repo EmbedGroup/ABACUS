@@ -57,8 +57,6 @@ public class RocksDBPersistenceProvider implements PersistenceProvider {
         this.columnFamilies = columnFamilies;
         this.metadataColumnFamily = metadataColumnFamily;
         BFs = bfs;
-        //test
-
     }
 
     public RocksDBPersistenceProvider(String dbPath, String logPath, int cacheSize,

@@ -1,6 +1,8 @@
 package com.iota.iri.bloomfilters;
 
 import java.io.*;
+import java.util.LinkedList;
+import java.util.Queue;
 
 // import org.omg.CORBA.FREE_MEM;
 
@@ -8,24 +10,31 @@ import java.io.*;
  * 2 prefix table which contains 27*27 items
  */
 public class LeveledBloomFilter {
-    
+    private String path;
+    HashProvider.HashMethod HashFunction;
     public MTableItem[] table;
-    private String metadataPath = "LBF/metadata";
+    // private String metadataPath = "metadata";
     int SBFsize = 4 * 1024 * 8;
     int SBFhashs = 7;// p=0.01,k=log2(1/p)
     int[] SBFcapicity=new int[32];  //capicity decrese with 0.9 rate,so to as to maiantain 0.1 FPR for 32S BFs
-    SBFCache cache = new SBFCache();
+    SBFCache cache;
     boolean lock;
 
+    Queue<String> ConflictAddresses;
+    Queue<String> RecycledAddresses;
+    boolean isRecycle;
     
     /**
      * LBF start: 1.constructed Mtable 2.loadMetadata 3.run background
      * "readinActiveSBF"
      */
-    public LeveledBloomFilter() {
+    public LeveledBloomFilter(String p) {
+        path=p;
+        HashFunction= HashProvider.HashMethod.Murmur3KirschMitzenmacher;
+        cache=new SBFCache(path, HashFunction);
         table = new MTableItem[27 * 27];
         for (int i = 0; i < 27 * 27; i++) {
-            table[i] = new MTableItem();
+            table[i] = new MTableItem(path, HashFunction);
         }
         lock = true;
         SBFcapicity[0]=3418;
@@ -33,17 +42,35 @@ public class LeveledBloomFilter {
             SBFcapicity[i]=(int)(SBFcapicity[i-1]*0.9);
         }
     }
+    public LeveledBloomFilter(String p, HashProvider.HashMethod hf, boolean recycle) {
+        path=p;
+        HashFunction= hf;
+        isRecycle=recycle;
+        cache=new SBFCache(path, HashFunction);
+        table = new MTableItem[27 * 27];
+        for (int i = 0; i < 27 * 27; i++) {
+            table[i] = new MTableItem(path, HashFunction);
+        }
+        lock = true;
+        SBFcapicity[0]=3418;
+        for(int i=1;i<32;i++){
+            SBFcapicity[i]=(int)(SBFcapicity[i-1]*0.9);
+        }
+        if(isRecycle){
+            ConflictAddresses=new LinkedList<>();
+            RecycledAddresses=new LinkedList<>();
+        }
+    }
+
 
     public void Initialize() {
-        File f=new File("LBF");
+        File f=new File(path);
         if(!f.exists()){
             f.mkdirs();
         }
         loadMetadata();
         Thread t = new readinActiveSBF();
         t.start();
-        
-
     }
 
     // load metadata from fixed position in disk,lisk:"LBF/metadata"
@@ -54,10 +81,10 @@ public class LeveledBloomFilter {
     public int loadMetadata() {
         int valids=0;
         try {
-            
-            File f = new File(metadataPath);
+            String meta=path+"/metadata";
+            File f = new File(meta);
             if (f.exists()) {
-                BufferedReader bf = new BufferedReader(new FileReader(metadataPath));
+                BufferedReader bf = new BufferedReader(new FileReader(meta));
 
                 String line = null;
 
@@ -107,7 +134,6 @@ public class LeveledBloomFilter {
 
         @Override
         public void run() {
-            System.out.println("---------------start read in active sbf");
             // TODO Auto-generated method stub
             int valids = 0;
             for (int i = 0; i < 27 * 27; i++) {
@@ -115,7 +141,7 @@ public class LeveledBloomFilter {
                     // only read in valid GBF's active 27 SBF in
                     for (int j = 0; j < 27; j++) {
                         // SBF size=4*1024*8,hashs=log2(1/0.0.1)=7
-                        BloomFilter<String> sbf = new FilterBuilder(SBFsize, SBFhashs).buildBloomFilter();
+                        BloomFilter<String> sbf = new FilterBuilder(SBFsize, SBFhashs).hashFunction(HashFunction).buildBloomFilter();
                         int offset = (table[i].active[j]) * (4 * 1024) + j * 128 * 1024;// offset=j*128KB+active[j]*4KB
                         sbf.load(table[i].fileName, offset, 4 * 1024);
                         // table[i].subBFs[j] = sbf;
@@ -127,32 +153,43 @@ public class LeveledBloomFilter {
             }
             lock = false;
             
-            System.out.println("-----------Finish Initialize in Memory SBF,valids: " + valids);
+            System.out.println("Finish Initialize in Memory SBF,valids: " + valids);
             if(valids==0){
-                fackAddress();
+                // fackAddress();
             }
-            fackcache();
+            // fackcache();
         }
 
     }
 
+    class Recycler extends Thread{
+        public void run(){
+            while(true){
+                if(isRecycle && ConflictAddresses.size()!=0){
+
+                }
+            }
+        }
+    }
     /**
      * shutdown: storeMetadata storedata
      */
     public void Shutdown() {
+        System.out.println("Shuting down...");
         storeMetadata();
-        System.out.println("-------Stored metadata");
+        System.out.println("    Stored metadata");
         storedata();
 
-        System.out.printf("cache called total:%d,miss:%d\n",cache.total,cache.miss);
+        System.out.printf("    cache called total:%d,miss:%d\n",cache.total,cache.miss);
     }
 
     public void storeMetadata() {
         try {
-            File f = new File(metadataPath);
+            String meta=path+"/metadata";
+            File f = new File(meta);
             f.delete();
             f.createNewFile();
-            FileOutputStream os = new FileOutputStream(metadataPath);
+            FileOutputStream os = new FileOutputStream(meta);
             PrintWriter pw = new PrintWriter(os);
             for (int i = 0; i < 27 * 27; i++) {
                 pw.println(table[i].fileName);
@@ -198,7 +235,7 @@ public class LeveledBloomFilter {
             }
         }
        
-        System.out.println("---------stored data dirtys: " + dirtys);
+        System.out.println("    stored data dirtys: " + dirtys);
     }
 
     /**
@@ -218,7 +255,6 @@ public class LeveledBloomFilter {
         }
         int gbf = getGBFnumber(addr);
         int bf = getBFnumber(addr);
-
         if (!table[gbf].valid) {
             table[gbf].validate(gbf);// allocate space
         }
@@ -349,7 +385,7 @@ public class LeveledBloomFilter {
         int bf = getBFnumber(addr);
 
         // System.out.printf("active:%d\n",table[gbf].active[bf]);
-        if (table[bf].subBFs.get(bf) != null) {
+        if (table[gbf].subBFs.get(bf) != null) {
             if (table[gbf].subBFs.get(bf).contains(addr)) {
                 return true;
             } else {

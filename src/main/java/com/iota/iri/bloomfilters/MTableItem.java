@@ -13,6 +13,8 @@ import java.util.ArrayList;
  * elements:number of elements in active SBF,this must be save in metadata
  */
 public class MTableItem {
+    String path;
+    HashProvider.HashMethod HashFunction;
     String fileName;
     boolean valid;
     int[] active=new int[27];
@@ -20,7 +22,9 @@ public class MTableItem {
     ArrayList<BloomFilter<String>> subBFs=new ArrayList<>(27);
     boolean[] dirty=new boolean[27];//sbf is dirty,if once insert after last flush .used to save time in  shotdown
     int[] elements=new int[27];
-    MTableItem(){
+    MTableItem(String p, HashProvider.HashMethod hf){
+        path=p;
+        HashFunction=hf;
         //when MtableItem firt constructed all data still in Disk,only then readinData,inmemory[] are set true
         for(int i=0;i<27;i++){
             inmemory[i]=false;
@@ -41,7 +45,7 @@ public class MTableItem {
      * valid=true
      */
     public void validate(int groupID){
-        fileName="LBF/GBF"+groupID;
+        fileName=path+"/GBF"+groupID;
         File f=new File(fileName);
         try {
             if(!f.exists()){
@@ -50,7 +54,7 @@ public class MTableItem {
                 rf.setLength(27*128*1024);//27*128KB
                 rf.close(); 
                 for(int i=0;i<27;i++){
-                    BloomFilter<String> bf=new FilterBuilder(4*1024*8, 7).buildBloomFilter();
+                    BloomFilter<String> bf=new FilterBuilder(4*1024*8, 7).hashFunction(HashFunction).buildBloomFilter();
                     subBFs.add(bf);
                     inmemory[i]=true;
                 }

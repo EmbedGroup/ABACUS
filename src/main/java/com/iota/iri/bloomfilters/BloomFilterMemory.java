@@ -31,12 +31,15 @@ public class BloomFilterMemory<T> implements BloomFilter<T> {
     @Override
     public synchronized boolean addRaw(byte[] element) {
         boolean added = false;
+        //System.out.printf("hash position: ");
         for (int position : hash(element)) {
+            // System.out.printf("%d ", position);
             if (!getBit(position)) {
                 added = true;
                 setBit(position, true);
             }
         }
+        //System.out.printf("\n");
         return added;
     }
 
