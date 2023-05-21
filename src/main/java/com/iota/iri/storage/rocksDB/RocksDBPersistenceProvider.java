@@ -1,6 +1,6 @@
 package com.iota.iri.storage.rocksDB;
 
-import com.iota.iri.bloomfilters.LeveledBloomFilter;
+import com.iota.iri.hotbf.HotBF;
 import com.iota.iri.model.HashFactory;
 import com.iota.iri.model.persistables.Transaction;
 import com.iota.iri.storage.Indexable;
@@ -46,17 +46,18 @@ public class RocksDBPersistenceProvider implements PersistenceProvider {
     private DBOptions options;
     private BloomFilter bloomFilter;
     private boolean available;
-    public LeveledBloomFilter BFs;
+//    public LeveledBloomFilter BFs;
+    public HotBF HFBF;
 
     public RocksDBPersistenceProvider(String dbPath, String logPath, int cacheSize,
             Map<String, Class<? extends Persistable>> columnFamilies,
-            Map.Entry<String, Class<? extends Persistable>> metadataColumnFamily, LeveledBloomFilter bfs) {
+            Map.Entry<String, Class<? extends Persistable>> metadataColumnFamily, HotBF bfs) {
         this.dbPath = dbPath;
         this.logPath = logPath;
         this.cacheSize = cacheSize;
         this.columnFamilies = columnFamilies;
         this.metadataColumnFamily = metadataColumnFamily;
-        BFs = bfs;
+        HFBF = bfs;
     }
 
     public RocksDBPersistenceProvider(String dbPath, String logPath, int cacheSize,
@@ -95,7 +96,7 @@ public class RocksDBPersistenceProvider implements PersistenceProvider {
         if (thing.getClass() == Transaction.class) {
             Transaction transaction = (Transaction) thing;
             if (transaction.value < 0) {
-                BFs.insert(transaction.address.toString());
+                HFBF.Insert(transaction.address.toString());
             }
         }
         ColumnFamilyHandle handle = classTreeMap.get(thing.getClass());
@@ -306,7 +307,7 @@ public class RocksDBPersistenceProvider implements PersistenceProvider {
                     //System.out.println("save transction,address hash:"+transaction.address.toString());
                    //log.info("save transction,address hash:"+transaction.address.toString());
                     if (transaction.value < 0) {
-                        BFs.insert(transaction.address.toString());
+                        HFBF.Insert(transaction.address.toString());
                     }
                 }
 

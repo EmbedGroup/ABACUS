@@ -1,4 +1,4 @@
-package com.iota.iri.bloomfilters;
+package com.iota.iri.hotbf;
 
 import java.io.Serializable;
 import java.util.BitSet;
@@ -85,6 +85,8 @@ public interface BloomFilter<T> extends Cloneable, Serializable {
         return elements.stream().allMatch(this::contains);
     }
 
+    
+
     /**
      * Return the underyling bit vector of the Bloom filter.
      *
@@ -92,6 +94,10 @@ public interface BloomFilter<T> extends Cloneable, Serializable {
      */
     public BitSet getBitSet();
 
+    public void setBit(int index, boolean to);
+    public boolean getBit(int index);
+
+    public BitSet getRealBitSet();
     /**
      * Returns the configuration/builder of the Bloom filter.
      *
@@ -316,8 +322,13 @@ public interface BloomFilter<T> extends Cloneable, Serializable {
      */
     public void load(String path);
 
-    public void load(String path,int offset,int size);
+    public void load(String path,long offset,int size);
 
-    public void save(String path,int offset,int size);
+    public void save(String path,long offset,int size);
 
+    public  byte[] bitSet2ByteArray(BitSet bitSet);
+    public byte[] getBloomAsByteArray();
+    public  BitSet byteArray2BitSet(byte[] bytes);
+
+    public void setBloom(byte[] newBloom);
 }

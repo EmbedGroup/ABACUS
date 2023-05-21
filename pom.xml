@@ -58,7 +58,6 @@
     </repositories>
 
     <dependencies>
-
         <!-- https://mvnrepository.com/artifact/org.bouncycastle/bcprov-jdk15on -->
         <dependency>
             <groupId>org.bouncycastle</groupId>
@@ -266,7 +265,23 @@
             <version>${system-rules.version}</version>
             <scope>test</scope>
         </dependency>
-
+        <!-- <dependency>
+            <groupId>com.embedGroup.hotBF</groupId>
+            <artifactId>hotBF</artifactId>
+            <version>1.0-SNAPSHOT</version>
+            <scope>system</scope>
+          <systemPath>${project.basedir}/lib/hotBF-1.0-SNAPSHOT.one-jar.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>com.embedGroup.metrics</groupId>
+            <artifactId>metrics</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>   -->
+        <dependency>
+            <groupId>com.googlecode.concurrentlinkedhashmap</groupId>
+            <artifactId>concurrentlinkedhashmap-lru</artifactId>
+            <version>1.4.2</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -359,19 +374,41 @@
             </plugin>
             <!-- This checkstyle goal will only be invoked during the validate goal or by running "mvn validate"
                  manually. It indirectly calls "mvn checkstyle:check" -->
-            <plugin>
+            <!-- <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.iota.iri.bloomfilters.RecycledDemo</mainClass>
+                            <mainClass>com.iota.iri.levelbf.RecycledDemo</mainClass>
                             <addClasspath>true</addClasspath>
                         </manifest>
                     </archive>
                 </configuration>
-            </plugin>
-            <plugin>
+            </plugin> -->
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-jar-plugin</artifactId>
+            <executions>
+                <execution>
+                    <id>recycle
+                        <?m2e execute onConfiguration?>_demo</id>
+                    <phase>package</phase>
+                    <goals>
+                        <goal>jar</goal>
+                    </goals>
+                    <configuration>
+                        <classifier>recycle_demo</classifier>
+                        <archive>
+                            <manifest>
+                                <mainClass>com.iota.iri.levelbf.RecycledDemo</mainClass>
+                            </manifest>
+                        </archive>
+                    </configuration>
+                </execution>
+            </executions>
+        </plugin>
+            <plugin> 
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
                 <version>${checkstyle-version}</version>
@@ -504,8 +541,8 @@
                         <version>0.0.1</version>
                     </dependency>
                 </dependencies>
-
             </plugin>
+            
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>

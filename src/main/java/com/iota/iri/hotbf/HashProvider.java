@@ -1,4 +1,4 @@
-package com.iota.iri.bloomfilters;
+package com.iota.iri.hotbf;
 
 import java.io.Serializable;
 import java.math.BigInteger;
@@ -166,6 +166,8 @@ public class HashProvider {
         }
         return result;
     }
+
+    
 
     public static long murmur3(int seed, byte[] bytes) {
         return Integer.toUnsignedLong(murmur3Signed(seed, bytes));

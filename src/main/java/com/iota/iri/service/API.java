@@ -700,6 +700,7 @@ public class API {
      **/
     @Document(name = "storeTransactions")
     public AbstractResponse storeTransactionsStatement(List<String> trytes) throws Exception {
+        // System.out.println("storing tx");
         final List<TransactionViewModel> elements = convertTrytes(trytes);
         for (final TransactionViewModel transactionViewModel : elements) {
             // store transactions
@@ -732,6 +733,7 @@ public class API {
      **/
     @Document(name = "getNodeInfo")
     private AbstractResponse getNodeInfoStatement() throws Exception {
+        // System.out.println("getnodeinfo");
         String name = configuration.isTestnet() ? IRI.TESTNET_NAME : IRI.MAINNET_NAME;
         MilestoneViewModel milestone = MilestoneViewModel.first(tangle);
 
@@ -1415,6 +1417,7 @@ public class API {
      *                             <tt>paramName</tt>
      */
     private void validateParamExists(Map<String, Object> request, String paramName) throws ValidationException {
+        // System.out.printf("request: %s, param: %s\n", request.toString(), paramName);
         if (!request.containsKey(paramName)) {
             throw new ValidationException(INVALID_PARAMS);
         }

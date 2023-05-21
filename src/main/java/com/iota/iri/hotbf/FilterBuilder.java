@@ -1,4 +1,7 @@
-package com.iota.iri.bloomfilters;
+package com.iota.iri.hotbf;
+
+import com.iota.iri.hotbf.HashProvider.HashFunction;
+import com.iota.iri.hotbf.HashProvider.HashMethod;
 
 import java.io.Serializable;
 import java.nio.charset.Charset;
@@ -7,9 +10,6 @@ import java.util.HashSet;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-
-import com.iota.iri.bloomfilters.HashProvider.HashFunction;
-import com.iota.iri.bloomfilters.HashProvider.HashMethod;
 
 /**
  * Builder for Bloom Filters.
@@ -24,6 +24,7 @@ public class FilterBuilder implements Cloneable, Serializable {
     private Integer expectedElements;
     private Integer size;
     private Integer hashes;
+    private Integer BFUnits=1;
     private Integer countingBits = 16;
     private Double falsePositiveProbability;
     private String name = "";
@@ -31,8 +32,10 @@ public class FilterBuilder implements Cloneable, Serializable {
     private Integer redisPort = 6379;
     private Integer redisConnections = 10;
     private boolean redisSsl = false;
+    
     private HashMethod hashMethod = HashMethod.Murmur3KirschMitzenmacher;
     private HashFunction hashFunction = HashMethod.Murmur3KirschMitzenmacher.getHashFunction();
+
     private Set<Entry<String, Integer>> slaves = new HashSet<>();
     private static transient Charset defaultCharset = Charset.forName("UTF-8");
     private boolean done = false;
@@ -68,7 +71,89 @@ public class FilterBuilder implements Cloneable, Serializable {
     public FilterBuilder(int size, int hashes) {
         this.size(size).hashes(hashes);
     }
-
+    
+    public FilterBuilder(int BFUs, int size, int hashes){
+        BFUnits=BFUs;
+        this.size(size).hashes(hashes);
+    }
+    /**
+     * Assign hash function from below:
+     *  from 0 to 13:
+     *     Murmur3KirschMitzenmacher RNG,CarterWegman,CRC32,Adler32,Murmur2,Murmur3,,FNVWithLCG,MD2,MD5,SHA1,SHA256,SHA384,SHA512
+     * 
+     * speed test:
+            0:5
+            1:4
+            2:28
+            3:2
+            4:2
+            5:1
+            6:29
+            7:1
+            8:36
+            9:10
+            10:12
+            11:16
+            12:24
+            13:11
+     * @param func
+     */
+    public FilterBuilder AssignHashFunction(int func){
+        if(func==1){
+            hashMethod= HashMethod.RNG;
+            hashFunction= HashMethod.RNG.getHashFunction();
+        }
+        else if(func==2){
+            hashMethod= HashMethod.CarterWegman;
+            hashFunction= HashMethod.CarterWegman.getHashFunction();
+        }
+        else if(func==3){
+            hashMethod= HashMethod.CRC32;
+            hashFunction= HashMethod.CRC32.getHashFunction();
+        }
+        else if(func==4){
+            hashMethod= HashMethod.Adler32;
+            hashFunction= HashMethod.Adler32.getHashFunction();
+        }
+        else if(func==5){
+            hashMethod= HashMethod.Murmur2;
+            hashFunction= HashMethod.Murmur2.getHashFunction();
+        }
+        else if(func==6){
+            hashMethod= HashMethod.Murmur3;
+            hashFunction= HashMethod.Murmur3.getHashFunction();
+        }
+        else if(func==7){
+            hashMethod= HashMethod.FNVWithLCG;
+            hashFunction= HashMethod.FNVWithLCG.getHashFunction();
+        }
+        else if(func==8){
+            hashMethod= HashMethod.MD2;
+            hashFunction= HashMethod.MD2.getHashFunction();
+        }
+        else if(func==9){
+            hashMethod= HashMethod.MD5;
+            hashFunction= HashMethod.MD5.getHashFunction();
+        }
+        else if(func==10){
+            hashMethod= HashMethod.SHA1;
+            hashFunction= HashMethod.SHA1.getHashFunction();
+        }
+        else if(func==11){
+            hashMethod= HashMethod.SHA256;
+            hashFunction= HashMethod.SHA256.getHashFunction();
+        }
+        else if(func==12){
+            hashMethod= HashMethod.SHA384;
+            hashFunction= HashMethod.SHA384.getHashFunction();
+        }
+        else if(func==13){
+            hashMethod= HashMethod.SHA512;
+            hashFunction= HashMethod.SHA512.getHashFunction();
+        }
+        else{}
+        return this;
+    }
     /**
      * Sets the number of expected elements. In combination with the tolerable false positive probability, this is used
      * to infer the optimal size and optimal number of hash functions of the filter.
@@ -362,28 +447,41 @@ public class FilterBuilder implements Cloneable, Serializable {
         complete();
             return new BloomFilterMemory<>(this);
     }
+
     /**
-     * Checks if all necessary parameters were set and tries to infer optimal parameters (e.g. size and hashes from
-     * given expectedElements and falsePositiveProbability). This is done automatically.
+     * Checks if all necessary parameters were set and tries to infer optimal
+     * parameters (e.g. size and hashes from given expectedElements and
+     * falsePositiveProbability). This is done automatically.
      *
      * @return the completed FilterBuilder
      */
     public FilterBuilder complete() {
-        if (done) { return this; }
+        if (done) {
+            return this;
+        }
         if (size == null && expectedElements != null && falsePositiveProbability != null) {
             size = optimalM(expectedElements, falsePositiveProbability);
         }
-        if (hashes == null && expectedElements != null && size != null) { hashes = optimalK(expectedElements, size); }
-        if (size == null || hashes == null) {
-            throw new NullPointerException("Neither (expectedElements, falsePositiveProbability) nor (size, hashes) were specified.");
+        if (hashes == null && expectedElements != null && size != null) {
+            hashes = optimalK(expectedElements, size);
         }
-        if (falsePositiveProbability == null) { expectedElements = optimalN(hashes, size); }
-        if (falsePositiveProbability == null) { falsePositiveProbability = optimalP(hashes, size, expectedElements); }
+        if (size == null || hashes == null) {
+            throw new NullPointerException(
+                    "Neither (expectedElements, falsePositiveProbability) nor (size, hashes) were specified.");
+        }
+        if (falsePositiveProbability == null) {
+            expectedElements = optimalN(hashes, size);
+        }
+        if (falsePositiveProbability == null) {
+            falsePositiveProbability = optimalP(hashes, size, expectedElements);
+        }
 
         done = true;
         return this;
     }
-
+    public Integer getBFUnits() {
+        return BFUnits;
+    }
 
     @Override
     public FilterBuilder clone() {

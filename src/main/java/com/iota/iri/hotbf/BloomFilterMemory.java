@@ -1,26 +1,23 @@
-package com.iota.iri.bloomfilters;
+package com.iota.iri.hotbf;
 
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.RandomAccessFile;
+import java.io.*;
 import java.util.BitSet;
 
 public class BloomFilterMemory<T> implements BloomFilter<T> {
     private static final long serialVersionUID = -5962895807963838856L;
     private final FilterBuilder config;
-    protected BitSet blooms[] = new BitSet[5];
+    //public ArrayList<BitSet> blooms=new ArrayList<>();
+    //int BFUnits;
+    //int hashFunctionPerBFUnits;
+
     protected BitSet bloom;
     public BloomFilterMemory(FilterBuilder config) {
         config.complete();
+        //BFUnits=config.getBFUnits();
+        //hashFunctionPerBFUnits=(int)Math.ceil((double)(config.hashes()) / BFUnits);
         bloom = new BitSet(config.size());
-        this.config = config;    
+        this.config = config;
     }
 
     @Override
@@ -31,15 +28,13 @@ public class BloomFilterMemory<T> implements BloomFilter<T> {
     @Override
     public synchronized boolean addRaw(byte[] element) {
         boolean added = false;
-        //System.out.printf("hash position: ");
         for (int position : hash(element)) {
-            // System.out.printf("%d ", position);
+            //System.out.println("hash "+element+" result: "+position);
             if (!getBit(position)) {
                 added = true;
                 setBit(position, true);
             }
         }
-        //System.out.printf("\n");
         return added;
     }
 
@@ -58,17 +53,24 @@ public class BloomFilterMemory<T> implements BloomFilter<T> {
         return true;
     }
 
-    protected boolean getBit(int index) {
+    public boolean getBit(int index) {
         return bloom.get(index);
     }
 
-    protected void setBit(int index, boolean to) {
+    public void setBit(int index, boolean to) {
         bloom.set(index, to);
     }
 
     @Override
     public synchronized BitSet getBitSet() {
         return (BitSet) bloom.clone();
+    }
+
+    public byte[] getBloomAsByteArray(){
+        return bitSet2ByteArray(bloom);
+    }
+    public BitSet getRealBitSet(){
+        return bloom;
     }
 
     @Override
@@ -171,7 +173,7 @@ public class BloomFilterMemory<T> implements BloomFilter<T> {
      * @param offset
      * @param size
      */
-    public void load(String path, int offset,int size) {
+    public void load(String path, long offset,int size) {
         try {
             File f=new File(path);
             RandomAccessFile rf=new RandomAccessFile(f, "r");
@@ -187,8 +189,14 @@ public class BloomFilterMemory<T> implements BloomFilter<T> {
             e.printStackTrace();
         }
     }
-
-    public void save(String path,int offset,int size){
+    public void setBloom(byte[] newBloom){
+        if(newBloom.length != getSize()){
+            System.out.println("ERROR:Bloom length mismatch");
+            return;
+        }
+        bloom=byteArray2BitSet(newBloom);
+    }
+    public void save(String path,long offset,int size){
         try {
             File f=new File(path);
             if(!f.exists()){
@@ -205,7 +213,7 @@ public class BloomFilterMemory<T> implements BloomFilter<T> {
         }
     }
 
-    public static byte[] bitSet2ByteArray(BitSet bitSet) {
+    public byte[] bitSet2ByteArray(BitSet bitSet) {
         byte[] bytes = new byte[bitSet.size() / 8];
         for (int i = 0; i < bitSet.size(); i++) {
             int index = i / 8;
@@ -215,7 +223,7 @@ public class BloomFilterMemory<T> implements BloomFilter<T> {
         return bytes;
     }
 
-    public static BitSet byteArray2BitSet(byte[] bytes) {
+    public  BitSet byteArray2BitSet(byte[] bytes) {
         BitSet bitSet = new BitSet(bytes.length * 8);
         int index = 0;
         for (int i = 0; i < bytes.length; i++) {

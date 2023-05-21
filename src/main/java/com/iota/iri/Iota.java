@@ -1,10 +1,10 @@
 package com.iota.iri;
 
-import com.iota.iri.bloomfilters.LeveledBloomFilter;
 import com.iota.iri.conf.IotaConfig;
 import com.iota.iri.conf.TipSelConfig;
 import com.iota.iri.controllers.TipsViewModel;
 import com.iota.iri.controllers.TransactionViewModel;
+import com.iota.iri.hotbf.HotBF;
 import com.iota.iri.model.persistables.SpentAddress;
 import com.iota.iri.network.NeighborRouter;
 import com.iota.iri.network.TransactionRequester;
@@ -39,7 +39,6 @@ import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 /**
  *
  * The main class of IRI. This will propagate transactions into and throughout the network. This data is stored as a
@@ -79,8 +78,8 @@ public class Iota {
 
     public final SpentAddressesServiceImpl spentAddressesService;
 
-    public final LeveledBloomFilter BFs;
-
+//    public final LeveledBloomFilter BFs;
+     public final HotBF HFBF;
     
     public final SnapshotProviderImpl snapshotProvider;
 
@@ -128,7 +127,8 @@ public class Iota {
 
         // new refactored instances
         spentAddressesProvider = new SpentAddressesProviderImpl();
-        BFs=new LeveledBloomFilter("LBF");
+//        BFs=new LeveledBloomFilter("LBF");
+        HFBF=new HotBF();
         spentAddressesService = new SpentAddressesServiceImpl();
         snapshotProvider = new SnapshotProviderImpl();
         snapshotService = new SnapshotServiceImpl();
@@ -205,9 +205,11 @@ public class Iota {
         // because we check whether spent addresses data exists
         snapshotProvider.init(configuration);
         initSpentAddressesProvider();
-        BFs.Initialize();
+//        BFs.Initialize();
+        HFBF.ini(2,4*1024*8,2,0.001,100*1024*1024*8);
 
-        spentAddressesService.init(tangle, snapshotProvider, spentAddressesProvider, bundleValidator, configuration,BFs);
+        spentAddressesService.init(tangle, snapshotProvider, spentAddressesProvider, bundleValidator, configuration,HFBF);
+
         snapshotService.init(tangle, snapshotProvider, spentAddressesService, spentAddressesProvider, configuration);
         if (localSnapshotManager != null) {
             localSnapshotManager.init(snapshotProvider, snapshotService, transactionPruner, configuration);
@@ -228,7 +230,7 @@ public class Iota {
         neighborRouter.init(configuration, configuration, transactionRequester, txPipeline);
         txPipeline.init(neighborRouter, configuration, transactionValidator, tangle, snapshotProvider, tipsViewModel,
                 latestMilestoneTracker, transactionRequester);
-        tipRequester.init(neighborRouter, tangle, latestMilestoneTracker, transactionRequester,BFs);
+        tipRequester.init(neighborRouter, tangle, latestMilestoneTracker, transactionRequester,HFBF);
     }
     /**
      * 新建数据库，从文件中读入spentaddress
@@ -281,7 +283,7 @@ public class Iota {
      */
     public void shutdown() throws Exception {
         // shutdown in reverse starting order (to not break any dependencies)
-        BFs.Shutdown();
+        HFBF.ShutDown();
         milestoneSolidifier.shutdown();
         seenMilestonesRetriever.shutdown();
         latestSolidMilestoneTracker.shutdown();
@@ -339,7 +341,7 @@ public class Iota {
             Map<String, Class<? extends Persistable>> columnFamily,
             Map.Entry<String, Class<? extends Persistable>> metadata) {
         return new RocksDBPersistenceProvider(
-                path, log, cacheSize, columnFamily, metadata,BFs);
+                path, log, cacheSize, columnFamily, metadata,HFBF);
     }
 
     private TipSelector createTipSelector(TipSelConfig config) {

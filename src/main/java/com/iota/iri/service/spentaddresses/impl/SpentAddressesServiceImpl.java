@@ -1,13 +1,13 @@
 package com.iota.iri.service.spentaddresses.impl;
 
-import com.iota.iri.metrics.ConsoleReporter;
-import com.iota.iri.metrics.MetricRegistry;
-import com.iota.iri.metrics.Timer;
 import com.iota.iri.BundleValidator;
-import com.iota.iri.bloomfilters.LeveledBloomFilter;
 import com.iota.iri.conf.MilestoneConfig;
 import com.iota.iri.controllers.AddressViewModel;
 import com.iota.iri.controllers.TransactionViewModel;
+import com.iota.iri.hotbf.HotBF;
+import com.iota.iri.metrics.ConsoleReporter;
+import com.iota.iri.metrics.MetricRegistry;
+import com.iota.iri.metrics.Timer;
 import com.iota.iri.model.Hash;
 import com.iota.iri.service.snapshot.SnapshotProvider;
 import com.iota.iri.service.spentaddresses.SpentAddressesException;
@@ -17,19 +17,19 @@ import com.iota.iri.service.tipselection.TailFinder;
 import com.iota.iri.service.tipselection.impl.TailFinderImpl;
 import com.iota.iri.storage.Tangle;
 import com.iota.iri.utils.IotaUtils;
+import org.apache.commons.collections4.CollectionUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import pl.touk.throwing.ThrowingPredicate;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import org.apache.commons.collections4.CollectionUtils;
-
-import pl.touk.throwing.ThrowingPredicate;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * 
@@ -66,7 +66,8 @@ public class SpentAddressesServiceImpl implements SpentAddressesService {
     private final ExecutorService asyncSpentAddressesPersistor = IotaUtils
             .createNamedSingleThreadExecutor("Persist Spent Addresses Async");
 
-    private LeveledBloomFilter BFs;
+//    private LeveledBloomFilter BFs;
+    private HotBF HFBF;
 
     /**
      * Creates a Spent address service using the Tangler
@@ -81,14 +82,14 @@ public class SpentAddressesServiceImpl implements SpentAddressesService {
      */
     public SpentAddressesServiceImpl init(Tangle tangle, SnapshotProvider snapshotProvider,
             SpentAddressesProvider spentAddressesProvider, BundleValidator bundleValidator, MilestoneConfig config,
-            LeveledBloomFilter bfs) {
+            HotBF bfs) {
         this.tangle = tangle;
         this.snapshotProvider = snapshotProvider;
         this.spentAddressesProvider = spentAddressesProvider;
         this.bundleValidator = bundleValidator;
         this.tailFinder = new TailFinderImpl(tangle);
         this.config = config;
-        this.BFs = bfs;
+        this.HFBF = bfs;
         //reporter.start(60, TimeUnit.SECONDS,TimeUnit.MICROSECONDS);
         timer = registry.timer(MetricRegistry.name(SpentAddressesService.class, "wereAddressSpentFrom-ExeryMinute"));
         reporter.start(60, TimeUnit.SECONDS);
@@ -190,12 +191,16 @@ public class SpentAddressesServiceImpl implements SpentAddressesService {
             }
 
             // 检查布隆过滤器，若是肯定不存在则返回false
-            if (!BFs.check(addressHash.toString())) {
+//            if (!BFs.check(addressHash.toString())) {
+//                // log.info("checked BFs,return false");
+//                getResultFromBFs++;
+//                return false;
+//            }
+            if (!HFBF.mayExists(addressHash.toString())) {
                 // log.info("checked BFs,return false");
                 getResultFromBFs++;
                 return false;
             }
-
             try {
                 Set<Hash> hashes = AddressViewModel.load(tangle, addressHash).getHashes();
                 int setSizeLimit = 100_000;

@@ -1,4 +1,4 @@
-package com.iota.iri.bloomfilters;
+package com.iota.iri.levelbf;
 
 import java.io.File;
 import java.util.ArrayList;

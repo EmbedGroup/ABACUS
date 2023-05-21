@@ -1,4 +1,4 @@
-java -jar target/iri-1.8.1.jar -n tcp://192.168.0.101:15600 --testnet true --zmq-enable-tcp true \
+java -jar target/iri-1.8.1.jar --testnet true --zmq-enable-tcp true \
 	--remote true --remote-limit-api true \
 	--testnet-coordinator JPDPNHABUWUFZSZWDGEYZBIGILECSAKBDZSEXE9GKNXMD9PAGMGSJTFUGGENFHJKOGWNTCZFFDLURUIET \
 	--testnet-coordinator-security-level 1 \
@@ -7,4 +7,8 @@ java -jar target/iri-1.8.1.jar -n tcp://192.168.0.101:15600 --testnet true --zmq
 	--milestone-start 0 \
 	--milestone-keys 16 \
 	--snapshot snapshot.txt \
-	--max-depth 1000
+	--max-depth 1000 \
+	-p 24256 \
+	-t 25600 \
+	--zmq-port 25601 \
+	-n tcp://127.0.0.1:15600

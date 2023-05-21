@@ -24,7 +24,11 @@ dependency-reduced-pom.xml
 .checkstyle
 db-bench/
 db-log-bench/
-
+/testnetdb
+/testnetdb.log
+HBF-Meta
+HBF*
+testnet*
 # Created by https://www.gitignore.io/api/osx,linux,windows
 
 ### Linux ###
