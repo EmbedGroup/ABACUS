@@ -8,7 +8,4 @@ java -jar target/iri-1.8.1.jar --testnet true --zmq-enable-tcp true \
 	--milestone-keys 16 \
 	--snapshot snapshot.txt \
 	--max-depth 1000 \
-	-p 24256 \
-	-t 25600 \
-	--zmq-port 25601 \
-	-n tcp://127.0.0.1:15600
+	-n tcp://192.168.1.154:15600 \
